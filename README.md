@@ -1,3 +1,4 @@
+自编译版
 <img alt="Coolapk LOGO" src="./logo.png" width="200px" />
 
 # Coolapk Lite
