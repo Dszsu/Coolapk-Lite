@@ -1,11 +1,11 @@
 name: Build Coolapk-Lite UWP
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
+  push:
+    branches:
+      - '**'
+  pull_request:
 
 jobs:
   build:
@@ -16,22 +16,33 @@ jobs:
       PLATFORM: x64
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1
 
+      - name: Locate solution file
+        id: sln
+        shell: pwsh
+        run: |
+          $sln = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
+          if (-not $sln) {
+            Write-Error "No .sln file found in repository"
+            exit 1
+          }
+          Write-Host "Found solution: $($sln.FullName)"
+          "path=$($sln.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Restore NuGet packages
         shell: pwsh
         run: |
-          nuget restore CoolapkLite/CoolapkLite/CoolapkLite.sln
+          nuget restore "${{ steps.sln.outputs.path }}"
 
       - name: Build UWP project
         shell: pwsh
         run: |
-          msbuild `
-            CoolapkLite/CoolapkLite/CoolapkLite.sln `
+          msbuild "${{ steps.sln.outputs.path }}" `
             /t:Clean,Build `
             /p:Configuration=${{ env.CONFIGURATION }} `
             /p:Platform=${{ env.PLATFORM }} `
@@ -39,21 +50,20 @@ jobs:
             /p:AppxBundlePlatforms="x64" `
             /m
 
-      - name: Collect build artifacts
+      - name: Collect Appx artifacts
         shell: pwsh
         run: |
           $out = "artifacts"
           New-Item -ItemType Directory -Force -Path $out | Out-Null
 
-          Get-ChildItem `
-            -Recurse `
+          Get-ChildItem -Recurse `
             -Include *.appx,*.appxbundle,*.msix `
             -ErrorAction SilentlyContinue |
           ForEach-Object {
             Copy-Item $_.FullName $out -Force
           }
 
-          Write-Host "Collected files:"
+          Write-Host "Artifacts collected:"
           Get-ChildItem $out
 
       - name: Upload artifacts
