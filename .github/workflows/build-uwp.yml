@@ -1,0 +1,63 @@
+name: Build Coolapk-Lite UWP
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    env:
+      CONFIGURATION: Release
+      PLATFORM: x64
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Restore NuGet packages
+        shell: pwsh
+        run: |
+          nuget restore CoolapkLite/CoolapkLite/CoolapkLite.sln
+
+      - name: Build UWP project
+        shell: pwsh
+        run: |
+          msbuild `
+            CoolapkLite/CoolapkLite/CoolapkLite.sln `
+            /t:Clean,Build `
+            /p:Configuration=${{ env.CONFIGURATION }} `
+            /p:Platform=${{ env.PLATFORM }} `
+            /p:AppxBundle=Always `
+            /p:AppxBundlePlatforms="x64" `
+            /m
+
+      - name: Collect build artifacts
+        shell: pwsh
+        run: |
+          $out = "artifacts"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+
+          Get-ChildItem `
+            -Recurse `
+            -Include *.appx,*.appxbundle,*.msix `
+            -ErrorAction SilentlyContinue |
+          ForEach-Object {
+            Copy-Item $_.FullName $out -Force
+          }
+
+          Write-Host "Collected files:"
+          Get-ChildItem $out
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Coolapk-Lite-UWP
+          path: artifacts/
