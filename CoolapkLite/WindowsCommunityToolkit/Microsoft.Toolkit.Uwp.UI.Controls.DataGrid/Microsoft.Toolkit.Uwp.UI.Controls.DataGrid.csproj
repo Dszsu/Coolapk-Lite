@@ -1,7 +1,9 @@
-<Project Sdk="MSBuild.Sdk.Extras">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>uap10.0</TargetFramework>
+    <TargetPlatformIdentifier>UAP</TargetPlatformIdentifier>
+    <TargetPlatformVersion>10.0.19041.0</TargetPlatformVersion>
     <TargetPlatformMinVersion>10.0.10240.0</TargetPlatformMinVersion>
     <RootNamespace>Microsoft.Toolkit.Uwp.UI.Controls</RootNamespace>
   </PropertyGroup>
@@ -19,16 +21,14 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
       <CustomToolNamespace>$(RootNamespace)</CustomToolNamespace>
-      <!-- The 'ManifestResourceName' metadata changes the default manifest naming scheme -->
       <ManifestResourceName>$(RootNamespace).%(Filename)</ManifestResourceName>
     </EmbeddedResource>
+
     <Compile Update="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
   </ItemGroup>
-
-  <Import Project="$(BuildToolsDirectory)Windows.Toolkit.UWP.Controls.targets" />
 
 </Project>
