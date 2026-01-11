@@ -1,27 +1,33 @@
-name: Build UWP (Coolapk Lite)
+name: Build Coolapk UWP
 
 on:
   push:
     branches:
-      - main
-      - master
+      - revived
+    paths:
+      - CoolapkUWP/**
   pull_request:
+    branches:
+      - revived
+    paths:
+      - CoolapkUWP/**
+
+env:
+  CONFIGURATION: Release
+  PLATFORM: x64
+  UWP_SDK_VERSION: 10.0.19041.0
+  APPX_PACKAGE_DIR: ${{ github.workspace }}/AppxPackages
 
 jobs:
   build:
-    runs-on: windows-latest
-
-    env:
-      CONFIGURATION: Release
-      PLATFORM: x64
-      UWP_SDK_VERSION: 10.0.19041.0
+    runs-on: windows-2022
 
     steps:
-      # 1️⃣ Checkout 仓库
+      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 安装 Windows 10 SDK（UWP）
+      # 2️⃣ 安装 Windows 10 SDK
       - name: Install Windows 10 SDK
         shell: powershell
         run: |
@@ -37,7 +43,7 @@ jobs:
         with:
           nuget-version: '7.x'
 
-      # 5️⃣ 缓存 NuGet 包
+      # 5️⃣ Cache NuGet packages
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -50,15 +56,26 @@ jobs:
 
       # 6️⃣ Restore NuGet packages
       - name: Restore NuGet packages
-        run: nuget restore CoolapkLite.sln
+        run: nuget restore CoolapkUWP.sln
 
-      # 7️⃣ Build UWP solution
-      - name: Build UWP solution
+      # 7️⃣ Build UWP solution & generate APPX (no signing)
+      - name: Build UWP Solution
         run: |
-          msbuild CoolapkLite.sln `
+          msbuild CoolapkUWP.sln `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
             /p:TargetPlatformIdentifier=UAP `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
             /p:TargetPlatformMinVersion=10.0.10240.0 `
+            /p:AppxBundlePlatforms=$env:PLATFORM `
+            /p:AppxPackageDir=$env:APPX_PACKAGE_DIR `
+            /p:AppxBundle=Always `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
             /restore
+
+      # 8️⃣ Publish AppxPackages as artifact
+      - name: Publish Appx Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MSIX Package
+          path: ${{ github.workspace }}/AppxPackages
