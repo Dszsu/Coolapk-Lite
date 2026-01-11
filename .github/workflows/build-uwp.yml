@@ -17,14 +17,28 @@ jobs:
       UWP_SDK_VERSION: 10.0.19041.0
 
     steps:
-      - name: Checkout source
+      # -----------------------------
+      # Checkout
+      # -----------------------------
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # -----------------------------
+      # Setup build tools
+      # -----------------------------
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
+
+      # -----------------------------
+      # Debug: list solution (optional but safe)
+      # -----------------------------
+      - name: Locate solution file
+        shell: pwsh
+        run: |
+          Get-ChildItem -Recurse -Filter *.sln
 
       # -----------------------------
       # Cache NuGet packages
@@ -39,7 +53,7 @@ jobs:
             nuget-${{ runner.os }}-
 
       # -----------------------------
-      # Cache build outputs (bin/obj)
+      # Cache build outputs
       # -----------------------------
       - name: Cache build outputs
         uses: actions/cache@v4
@@ -52,7 +66,7 @@ jobs:
             build-${{ runner.os }}-
 
       # -----------------------------
-      # Cache WindowsCommunityToolkit build artifacts
+      # Cache WindowsCommunityToolkit artifacts
       # -----------------------------
       - name: Cache WindowsCommunityToolkit
         uses: actions/cache@v4
@@ -65,37 +79,37 @@ jobs:
             toolkit-${{ runner.os }}-
 
       # -----------------------------
-      # Force UWP SDK version (19041)
+      # Force UWP SDK version to 19041
       # -----------------------------
       - name: Fix UWP TargetPlatformVersion
         shell: pwsh
         run: |
           Write-Host "Forcing TargetPlatformVersion to $env:UWP_SDK_VERSION"
 
-          $oldPattern = '10\.0\.\d{5}\.0'
+          $pattern = '10\.0\.\d{5}\.0'
           $files = Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets
 
           foreach ($file in $files) {
-              $content = Get-Content $file.FullName -Raw
-              if ($content -match $oldPattern) {
-                  Write-Host "Updating $($file.FullName)"
-                  $content = [regex]::Replace($content, $oldPattern, $env:UWP_SDK_VERSION)
-                  Set-Content $file.FullName $content -Encoding UTF8
-              }
+            $content = Get-Content $file.FullName -Raw
+            if ($content -match $pattern) {
+              Write-Host "Updating $($file.FullName)"
+              $content = [regex]::Replace($content, $pattern, $env:UWP_SDK_VERSION)
+              Set-Content $file.FullName $content -Encoding UTF8
+            }
           }
 
       # -----------------------------
-      # Restore NuGet
+      # Restore NuGet (CORRECT PATH)
       # -----------------------------
       - name: Restore NuGet packages
-        run: nuget restore CoolapkLite/CoolapkLite.sln
+        run: nuget restore CoolapkLite/CoolapkLite/CoolapkLite.sln
 
       # -----------------------------
-      # Build solution
+      # Build solution (CORRECT PATH)
       # -----------------------------
       - name: Build UWP solution
         run: |
-          msbuild CoolapkLite/CoolapkLite.sln `
+          msbuild CoolapkLite/CoolapkLite/CoolapkLite.sln `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
