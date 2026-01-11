@@ -1,14 +1,15 @@
 name: Build Coolapk UWP
 
+# ✅ 任何提交或 PR 都触发
 on:
   push:
     branches:
-      - revived
+      - '**'         # 任意分支都触发
     paths:
       - CoolapkUWP/**
   pull_request:
     branches:
-      - revived
+      - '**'
     paths:
       - CoolapkUWP/**
 
