@@ -14,30 +14,30 @@ jobs:
     env:
       CONFIGURATION: Release
       PLATFORM: x64
-      UWP_SDK_VERSION: 10.0.19041.0  # MSBuild 使用
+      UWP_SDK_VERSION: 10.0.19041.0
 
     steps:
-      # 1️⃣ Checkout 源码
+      # 1️⃣ Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 安装 Windows 10 SDK (UWP)
-      - name: Install Windows 10 SDK
+      # 2️⃣ 安装 Windows 10 SDK
+      - name: Install Windows 10 SDK (UWP)
         shell: powershell
         run: |
           choco install windows-sdk-10.0 -y
 
-      # 3️⃣ 安装 MSBuild
+      # 3️⃣ Setup MSBuild
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      # 4️⃣ 安装 NuGet
+      # 4️⃣ Setup NuGet
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
         with:
           nuget-version: '7.x'
 
-      # 5️⃣ 缓存 NuGet 包
+      # 5️⃣ Cache NuGet packages
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -48,7 +48,7 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      # 6️⃣ Restore NuGet
+      # 6️⃣ Restore NuGet packages
       - name: Restore NuGet packages
         run: nuget restore CoolapkLite.sln
 
