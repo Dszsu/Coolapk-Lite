@@ -1,28 +1,28 @@
-Write-Host "Fixing UWP SDK references (full fix)..."
+- name: Fix UWP Platform Versions
+  shell: pwsh
+  run: |
+    $target = "10.0.19041.0"
 
-$old = "10.0.22621.0"
-$new = "10.0.19041.0"
+    Write-Host "Forcing UWP TargetPlatformVersion and MinVersion to $target"
 
-$files = Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets
+    $files = Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets
 
-foreach ($file in $files) {
-    $content = Get-Content $file.FullName -Raw
-    $updated = $false
+    foreach ($file in $files) {
+      $content = Get-Content $file.FullName -Raw
+      $changed = $false
 
-    if ($content -match $old) {
-        $content = $content -replace $old, $new
-        $updated = $true
-    }
+      if ($content -match '<TargetPlatformVersion>') {
+        $content = $content -replace '<TargetPlatformVersion>.*?</TargetPlatformVersion>', "<TargetPlatformVersion>$target</TargetPlatformVersion>"
+        $changed = $true
+      }
 
-    if ($content -match "uap10\.0\.22621") {
-        $content = $content -replace "uap10\.0\.22621", "uap10.0.19041"
-        $updated = $true
-    }
+      if ($content -match '<TargetPlatformMinVersion>') {
+        $content = $content -replace '<TargetPlatformMinVersion>.*?</TargetPlatformMinVersion>', "<TargetPlatformMinVersion>$target</TargetPlatformMinVersion>"
+        $changed = $true
+      }
 
-    if ($updated) {
-        Write-Host "Patching $($file.FullName)"
+      if ($changed) {
+        Write-Host "Updated $($file.FullName)"
         Set-Content $file.FullName $content -Encoding UTF8
+      }
     }
-}
-
-Write-Host "UWP SDK fix completed."
