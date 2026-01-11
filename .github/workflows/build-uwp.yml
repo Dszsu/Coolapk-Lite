@@ -1,16 +1,17 @@
 name: Build UWP (Coolapk Lite)
 
+# 每次 push/PR 到 fork 仓库都会触发
 on:
   push:
     branches:
-      - '**'   # 匹配所有分支
+      - '**'
     paths:
-      - CoolapkUWP/**
+      - 'CoolapkUWP/**'
   pull_request:
     branches:
       - '**'
     paths:
-      - CoolapkUWP/**
+      - 'CoolapkUWP/**'
 
 jobs:
   build:
@@ -19,7 +20,8 @@ jobs:
     env:
       CONFIGURATION: Release
       PLATFORM: x64
-      UWP_SDK_VERSION: 10.0.19041.0
+      # 使用 runner 自带 Windows 10 SDK
+      UWP_SDK_VERSION: 10.0.22621.0
 
     steps:
       - name: Checkout repository
@@ -51,6 +53,7 @@ jobs:
           msbuild CoolapkUWP.sln `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
+            /p:TargetPlatformIdentifier=UAP `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
-            /p:TargetPlatformMinVersion=$env:UWP_SDK_VERSION `
+            /p:TargetPlatformMinVersion=10.0.10240.0 `
             /restore
