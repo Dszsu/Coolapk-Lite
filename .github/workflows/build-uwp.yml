@@ -1,10 +1,9 @@
-name: Build Coolapk UWP
+name: Build UWP (Coolapk Lite)
 
-# ✅ 任何提交或 PR 都触发
 on:
   push:
     branches:
-      - '**'         # 任意分支都触发
+      - '**'   # 匹配所有分支
     paths:
       - CoolapkUWP/**
   pull_request:
@@ -13,38 +12,27 @@ on:
     paths:
       - CoolapkUWP/**
 
-env:
-  CONFIGURATION: Release
-  PLATFORM: x64
-  UWP_SDK_VERSION: 10.0.19041.0
-  APPX_PACKAGE_DIR: ${{ github.workspace }}/AppxPackages
-
 jobs:
   build:
     runs-on: windows-2022
 
+    env:
+      CONFIGURATION: Release
+      PLATFORM: x64
+      UWP_SDK_VERSION: 10.0.19041.0
+
     steps:
-      # 1️⃣ Checkout repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 安装 Windows 10 SDK
-      - name: Install Windows 10 SDK
-        shell: powershell
-        run: |
-          choco install windows-sdk-10.0 -y
-
-      # 3️⃣ Setup MSBuild
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      # 4️⃣ Setup NuGet
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
         with:
           nuget-version: '7.x'
 
-      # 5️⃣ Cache NuGet packages
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
@@ -55,28 +43,14 @@ jobs:
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      # 6️⃣ Restore NuGet packages
       - name: Restore NuGet packages
         run: nuget restore CoolapkUWP.sln
 
-      # 7️⃣ Build UWP solution & generate APPX (no signing)
-      - name: Build UWP Solution
+      - name: Build UWP solution
         run: |
           msbuild CoolapkUWP.sln `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
-            /p:TargetPlatformIdentifier=UAP `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
-            /p:TargetPlatformMinVersion=10.0.10240.0 `
-            /p:AppxBundlePlatforms=$env:PLATFORM `
-            /p:AppxPackageDir=$env:APPX_PACKAGE_DIR `
-            /p:AppxBundle=Always `
-            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:TargetPlatformMinVersion=$env:UWP_SDK_VERSION `
             /restore
-
-      # 8️⃣ Publish AppxPackages as artifact
-      - name: Publish Appx Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: MSIX Package
-          path: ${{ github.workspace }}/AppxPackages
