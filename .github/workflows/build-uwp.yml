@@ -20,6 +20,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install Windows 10 SDK 19041
+        shell: powershell
+        run: |
+          choco install windows-sdk-10.0.19041.0 -y
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
@@ -40,18 +45,13 @@ jobs:
 
       - name: Restore NuGet packages
         run: nuget restore CoolapkLite.sln
-        
-      - name: Install Windows 10 SDK 19041
-        shell: powershell
-        run: |
-          choco install windows-sdk-10.0.19041.0 -y
-
 
       - name: Build UWP solution
         run: |
           msbuild CoolapkLite.sln `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
+            /p:TargetPlatformIdentifier=UAP `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
-            /p:TargetPlatformMinVersion=$env:UWP_SDK_VERSION `
+            /p:TargetPlatformMinVersion=10.0.10240.0 `
             /restore
