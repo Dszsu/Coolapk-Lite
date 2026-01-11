@@ -1,13 +1,15 @@
-name: Build Coolapk-Lite UWP
+name: Build UWP (Coolapk Lite)
 
 on:
   push:
-    branches: [ main, master ]
+    branches:
+      - main
+      - master
   pull_request:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     env:
       CONFIGURATION: Release
@@ -15,78 +17,46 @@ jobs:
       UWP_SDK_VERSION: 10.0.19041.0
 
     steps:
-      # -----------------------------
-      # Checkout
-      # -----------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # Setup tools
-      # -----------------------------
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
       - name: Setup NuGet
         uses: NuGet/setup-nuget@v2
+        with:
+          nuget-version: '7.x'
 
-      # -----------------------------
-      # Locate solution (ABSOLUTE PATH)
-      # -----------------------------
-      - name: Find solution file
-        id: find_sln
-        shell: pwsh
-        run: |
-          $sln = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
-          if (-not $sln) {
-            Write-Error "No .sln file found"
-            exit 1
-          }
-          Write-Host "Found solution: $($sln.FullName)"
-          "SLN_PATH=$($sln.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
-
-      # -----------------------------
-      # Cache NuGet
-      # -----------------------------
       - name: Cache NuGet packages
         uses: actions/cache@v4
         with:
           path: |
             ~/.nuget/packages
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+            C:\Users\runneradmin\.nuget\packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.sln', '**/packages.config') }}
           restore-keys: |
             nuget-${{ runner.os }}-
 
-      # -----------------------------
-      # Force UWP SDK = 19041
-      # -----------------------------
-      - name: Fix UWP TargetPlatformVersion
-        shell: pwsh
+      - name: Install Windows 10 SDK 19041
+        shell: powershell
         run: |
-          $pattern = '10\.0\.\d{5}\.0'
-          Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets | ForEach-Object {
-            $content = Get-Content $_.FullName -Raw
-            if ($content -match $pattern) {
-              Write-Host "Fixing $($_.FullName)"
-              $content = [regex]::Replace($content, $pattern, $env:UWP_SDK_VERSION)
-              Set-Content $_.FullName $content -Encoding UTF8
-            }
+          $sdk = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\Lib" |
+            Where-Object { $_.Name -eq "${env:UWP_SDK_VERSION}" }
+          if (-not $sdk) {
+            Write-Host "Installing Windows 10 SDK ${env:UWP_SDK_VERSION}..."
+            choco install windows-sdk-10.0 --version=10.0.19041.0 -y
+          } else {
+            Write-Host "Windows 10 SDK ${env:UWP_SDK_VERSION} already installed."
           }
 
-      # -----------------------------
-      # Restore
-      # -----------------------------
-      - name: Restore NuGet packages
-        run: |
-          nuget restore "$env:SLN_PATH"
+      - name: NuGet Restore
+        run: nuget restore CoolapkLite.sln
 
-      # -----------------------------
-      # Build
-      # -----------------------------
       - name: Build UWP solution
         run: |
-          msbuild "$env:SLN_PATH" `
+          msbuild CoolapkLite.sln `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
-            /m
+            /restore
