@@ -2,9 +2,7 @@ name: Build Coolapk-Lite UWP
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
   pull_request:
 
 jobs:
@@ -24,7 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       # -----------------------------
-      # Setup build tools
+      # Setup tools
       # -----------------------------
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -33,15 +31,22 @@ jobs:
         uses: NuGet/setup-nuget@v2
 
       # -----------------------------
-      # Debug: list solution (optional but safe)
+      # Locate solution (ABSOLUTE PATH)
       # -----------------------------
-      - name: Locate solution file
+      - name: Find solution file
+        id: find_sln
         shell: pwsh
         run: |
-          Get-ChildItem -Recurse -Filter *.sln
+          $sln = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
+          if (-not $sln) {
+            Write-Error "No .sln file found"
+            exit 1
+          }
+          Write-Host "Found solution: $($sln.FullName)"
+          "SLN_PATH=$($sln.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append
 
       # -----------------------------
-      # Cache NuGet packages
+      # Cache NuGet
       # -----------------------------
       - name: Cache NuGet packages
         uses: actions/cache@v4
@@ -53,63 +58,34 @@ jobs:
             nuget-${{ runner.os }}-
 
       # -----------------------------
-      # Cache build outputs
-      # -----------------------------
-      - name: Cache build outputs
-        uses: actions/cache@v4
-        with:
-          path: |
-            **/bin
-            **/obj
-          key: build-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            build-${{ runner.os }}-
-
-      # -----------------------------
-      # Cache WindowsCommunityToolkit artifacts
-      # -----------------------------
-      - name: Cache WindowsCommunityToolkit
-        uses: actions/cache@v4
-        with:
-          path: |
-            CoolapkLite/WindowsCommunityToolkit/**/bin
-            CoolapkLite/WindowsCommunityToolkit/**/obj
-          key: toolkit-${{ runner.os }}-${{ hashFiles('CoolapkLite/WindowsCommunityToolkit/**/*.csproj') }}
-          restore-keys: |
-            toolkit-${{ runner.os }}-
-
-      # -----------------------------
-      # Force UWP SDK version to 19041
+      # Force UWP SDK = 19041
       # -----------------------------
       - name: Fix UWP TargetPlatformVersion
         shell: pwsh
         run: |
-          Write-Host "Forcing TargetPlatformVersion to $env:UWP_SDK_VERSION"
-
           $pattern = '10\.0\.\d{5}\.0'
-          $files = Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets
-
-          foreach ($file in $files) {
-            $content = Get-Content $file.FullName -Raw
+          Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
             if ($content -match $pattern) {
-              Write-Host "Updating $($file.FullName)"
+              Write-Host "Fixing $($_.FullName)"
               $content = [regex]::Replace($content, $pattern, $env:UWP_SDK_VERSION)
-              Set-Content $file.FullName $content -Encoding UTF8
+              Set-Content $_.FullName $content -Encoding UTF8
             }
           }
 
       # -----------------------------
-      # Restore NuGet (CORRECT PATH)
+      # Restore
       # -----------------------------
       - name: Restore NuGet packages
-        run: nuget restore CoolapkLite/CoolapkLite/CoolapkLite.sln
+        run: |
+          nuget restore "$env:SLN_PATH"
 
       # -----------------------------
-      # Build solution (CORRECT PATH)
+      # Build
       # -----------------------------
       - name: Build UWP solution
         run: |
-          msbuild CoolapkLite/CoolapkLite/CoolapkLite.sln `
+          msbuild "$env:SLN_PATH" `
             /p:Configuration=$env:CONFIGURATION `
             /p:Platform=$env:PLATFORM `
             /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
