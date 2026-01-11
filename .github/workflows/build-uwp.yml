@@ -1,73 +1,102 @@
 name: Build Coolapk-Lite UWP
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - '**'
+      - main
+      - master
   pull_request:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     env:
       CONFIGURATION: Release
       PLATFORM: x64
+      UWP_SDK_VERSION: 10.0.19041.0
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Locate solution file
-        id: sln
-        shell: pwsh
-        run: |
-          $sln = Get-ChildItem -Recurse -Filter *.sln | Select-Object -First 1
-          if (-not $sln) {
-            Write-Error "No .sln file found in repository"
-            exit 1
-          }
-          Write-Host "Found solution: $($sln.FullName)"
-          "path=$($sln.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
 
-      - name: Restore NuGet packages
-        shell: pwsh
-        run: |
-          nuget restore "${{ steps.sln.outputs.path }}"
-
-      - name: Build UWP project
-        shell: pwsh
-        run: |
-          msbuild "${{ steps.sln.outputs.path }}" `
-            /t:Clean,Build `
-            /p:Configuration=${{ env.CONFIGURATION }} `
-            /p:Platform=${{ env.PLATFORM }} `
-            /p:AppxBundle=Always `
-            /p:AppxBundlePlatforms="x64" `
-            /m
-
-      - name: Collect Appx artifacts
-        shell: pwsh
-        run: |
-          $out = "artifacts"
-          New-Item -ItemType Directory -Force -Path $out | Out-Null
-
-          Get-ChildItem -Recurse `
-            -Include *.appx,*.appxbundle,*.msix `
-            -ErrorAction SilentlyContinue |
-          ForEach-Object {
-            Copy-Item $_.FullName $out -Force
-          }
-
-          Write-Host "Artifacts collected:"
-          Get-ChildItem $out
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      # -----------------------------
+      # Cache NuGet packages
+      # -----------------------------
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
         with:
-          name: Coolapk-Lite-UWP
-          path: artifacts/
+          path: |
+            ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # -----------------------------
+      # Cache build outputs (bin/obj)
+      # -----------------------------
+      - name: Cache build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/bin
+            **/obj
+          key: build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            build-${{ runner.os }}-
+
+      # -----------------------------
+      # Cache WindowsCommunityToolkit build artifacts
+      # -----------------------------
+      - name: Cache WindowsCommunityToolkit
+        uses: actions/cache@v4
+        with:
+          path: |
+            CoolapkLite/WindowsCommunityToolkit/**/bin
+            CoolapkLite/WindowsCommunityToolkit/**/obj
+          key: toolkit-${{ runner.os }}-${{ hashFiles('CoolapkLite/WindowsCommunityToolkit/**/*.csproj') }}
+          restore-keys: |
+            toolkit-${{ runner.os }}-
+
+      # -----------------------------
+      # Force UWP SDK version (19041)
+      # -----------------------------
+      - name: Fix UWP TargetPlatformVersion
+        shell: pwsh
+        run: |
+          Write-Host "Forcing TargetPlatformVersion to $env:UWP_SDK_VERSION"
+
+          $oldPattern = '10\.0\.\d{5}\.0'
+          $files = Get-ChildItem -Recurse -Include *.csproj,*.props,*.targets
+
+          foreach ($file in $files) {
+              $content = Get-Content $file.FullName -Raw
+              if ($content -match $oldPattern) {
+                  Write-Host "Updating $($file.FullName)"
+                  $content = [regex]::Replace($content, $oldPattern, $env:UWP_SDK_VERSION)
+                  Set-Content $file.FullName $content -Encoding UTF8
+              }
+          }
+
+      # -----------------------------
+      # Restore NuGet
+      # -----------------------------
+      - name: Restore NuGet packages
+        run: nuget restore CoolapkLite/CoolapkLite.sln
+
+      # -----------------------------
+      # Build solution
+      # -----------------------------
+      - name: Build UWP solution
+        run: |
+          msbuild CoolapkLite/CoolapkLite.sln `
+            /p:Configuration=$env:CONFIGURATION `
+            /p:Platform=$env:PLATFORM `
+            /p:TargetPlatformVersion=$env:UWP_SDK_VERSION `
+            /m
